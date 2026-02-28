@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Theatre Dashboard</title>
+    <!-- Importing Chart.js directly from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 25px;
+            font-size: 28px;
+            color: #fff;
+        }
+
+        /* Tabs styling */
+        .tabs {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .tab:hover {
+            background: #333;
+        }
+
+        .tab.active {
+            border-color: #00e676;
+            background: rgba(0, 230, 118, 0.05);
+        }
+
+        .tab h3 {
+            margin: 0 0 10px 0;
+            font-size: 15px;
+            text-transform: capitalize;
+            color: #ddd;
+        }
+
+        .tab.active h3 {
+            color: #fff;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .status-normal {
+            background: rgba(0, 230, 118, 0.15);
+            color: #00e676;
+            border: 1px solid rgba(0, 230, 118, 0.3);
+        }
+
+        .status-alert {
+            background: rgba(255, 61, 0, 0.15);
+            color: #ff3d00;
+            border: 1px solid #ff3d00;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 61, 0, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 6px rgba(255, 61, 0, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 61, 0, 0);
+            }
+        }
+
+        /* Top Header Area for Active Sensor */
+        .header-box {
+            text-align: left;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .metric-value {
+            font-size: 42px;
+            font-weight: bold;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .timestamp {
+            font-size: 14px;
+            color: #aaaaaa;
+        }
+
+        /* Controls & Stats */
+        .dashboard-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            margin: 20px 0;
+            gap: 20px;
+        }
+
+        .controls {
+            flex: 1;
+            text-align: left;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .controls label {
+            display: block;
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        select {
+            padding: 10px 14px;
+            font-size: 15px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            outline: none;
+        }
+
+        .stats {
+            flex: 3;
+            display: flex;
+            gap: 15px;
+        }
+
+        .stat-box {
+            flex: 1;
+            text-align: left;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #aaa;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        canvas {
+            width: 100%;
+            height: 400px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Smart Theatre Monitoring</h1>
+
+        <!-- Top 5 Tabs -->
+        <div class="tabs" id="tabsContainer">
+            <!-- Tabs dynamically injected -->
+        </div>
+
+        <div class="header-box">
+            <div>
+                <div class="metric-value">
+                    <span id="currentValue">Loading...</span>
+                    <!-- Main status badge next to large number -->
+                    <span id="mainStatusBadge" class="status-badge status-normal"
+                        style="font-size: 14px; padding: 6px 12px;">Normal</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-row">
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">Min Value</div>
+                    <div class="stat-value" id="statMin">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Max Value</div>
+                    <div class="stat-value" id="statMax">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Average</div>
+                    <div class="stat-value" id="statAvg">-</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <label for="recordLimit">Show Records</label>
+                <select id="recordLimit" onchange="fetchSensorData()">
+                    <option value="5">Recent 5 records</option>
+                    <option value="25">Recent 25 records</option>
+                    <option value="50" selected>Recent 50 records</option>
+                    <option value="70">Recent 70 records</option>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <canvas id="sensorChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const sensors = ['motion', 'temperature', 'light', 'noise', 'smoke'];
+        let currentSensor = 'temperature'; // default to temp, motion is boring for stats
+        let chart;
+        let currentUnit = '';
+
+        function getStatusClasses(statusStr) {
+            return statusStr.includes("Critical") ? "status-badge status-alert" : "status-badge status-normal";
+        }
+
+        // Initialize tabs layout
+        function initTabs() {
+            const container = document.getElementById('tabsContainer');
+            container.innerHTML = '';
+            sensors.forEach(sensor => {
+                const tab = document.createElement('div');
+                tab.className = `tab ${sensor === currentSensor ? 'active' : ''}`;
+                tab.id = `tab-${sensor}`;
+                tab.onclick = () => selectSensor(sensor);
+                tab.innerHTML = `
+                    <h3>${sensor}</h3>
+                    <div id="badge-${sensor}" class="status-badge status-normal">Loading</div>
+                `;
+                container.appendChild(tab);
+            });
+        }
+
+        // Handle tab click
+        function selectSensor(sensor) {
+            currentSensor = sensor;
+            document.querySelectorAll('.tab').forEach(t => {
+                t.classList.remove('active');
+                t.style.borderColor = 'transparent';
+            });
+            const activeTab = document.getElementById(`tab-${sensor}`);
+            activeTab.classList.add('active');
+
+            // Re-eval borders
+            const val = document.getElementById(`badge-${sensor}`).innerText;
+            if (val.includes("Critical")) {
+                activeTab.style.borderColor = "#ff3d00";
+            } else {
+                activeTab.style.borderColor = "#00e676";
+            }
+
+            fetchSensorData();
+        }
+
+        // Initialize Chart
+        function initChart() {
+            const ctx = document.getElementById('sensorChart').getContext('2d');
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Measurement',
+                        data: [],
+                        borderColor: '#00e676',
+                        backgroundColor: 'rgba(0, 230, 118, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#00e676'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 0  // Disable animation for smooth refresh
+                    },
+                    scales: {
+                        x: { 
+                            grid: { color: '#333' }, 
+                            ticks: { color: '#aaa', maxTicksLimit: 8 },
+                            display: true
+                        },
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#333' },
+                            ticks: { color: '#aaa' },
+                            display: true
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            borderRadius: 4,
+                            callbacks: {
+                                label: function (context) {
+                                    return context.raw.toFixed(2) + ' ' + currentUnit;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Fetch overall status for all tabs periodically
+        async function fetchAllStatus() {
+            try {
+                const res = await fetch('/api/all-sensors');
+                const data = await res.json();
+
+                sensors.forEach(sensor => {
+                    const latest = data[sensor];
+                    if (latest) {
+                        const badge = document.getElementById(`badge-${sensor}`);
+                        const statusText = latest.status === 'alert' ? 'Critical' : 
+                                          latest.status === 'warning' ? 'Warning' : 'Optimal';
+                        badge.className = getStatusClasses(statusText);
+                        badge.innerText = statusText;
+
+                        // Keep active tab border colored based on state
+                        if (sensor === currentSensor) {
+                            const activeTab = document.getElementById(`tab-${sensor}`);
+                            activeTab.style.borderColor = latest.status !== 'normal' ? "#ff3d00" : "#00e676";
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("Error fetching general status", err);
+            }
+        }
+
+        // Fetch history data for active chart
+        async function fetchSensorData() {
+            const limit = document.getElementById('recordLimit').value;
+            try {
+                const response = await fetch(`/api/data/${currentSensor}?limit=${limit}`);
+                const result = await response.json();
+
+                const dataArr = result.data;
+                if (!dataArr || dataArr.length === 0) {
+                    console.warn(`No data for ${currentSensor}`);
+                    return;
+                }
+
+                const latest = dataArr[dataArr.length - 1];
+                const isAlert = latest.status === 'alert';
+                currentUnit = latest.unit;
+
+                // Console log for debugging (shows auto-refresh is working)
+                console.log(`[${new Date().toLocaleTimeString()}] Updated ${currentSensor}: ${latest.value} ${latest.unit} (last: ${latest.timestamp.split('T')[1].substring(0,8)})`);
+
+                // Update UI Texts (no timestamp)
+                document.getElementById('currentValue').innerText = `${latest.value} ${latest.unit}`;
+                document.getElementById('currentValue').style.color = isAlert ? "#ff3d00" : "#00e676";
+
+                const mainBadge = document.getElementById('mainStatusBadge');
+                const statusText = latest.status === 'alert' ? 'Critical' : 
+                                  latest.status === 'warning' ? 'Warning' : 'Optimal';
+                mainBadge.className = getStatusClasses(statusText);
+                mainBadge.innerText = statusText;
+
+                // Update Chart styling dynamically
+                const color = isAlert ? "#ff3d00" : "#00e676";
+                const bgR = isAlert ? 255 : 0;
+                const bgG = isAlert ? 61 : 230;
+                const bgB = isAlert ? 0 : 118;
+
+                // Extract just the time from timestamp (HH:MM:SS format)
+                chart.data.labels = dataArr.map(d => {
+                    const time = d.timestamp.split('T')[1].substring(0, 8); // HH:MM:SS
+                    return time;
+                });
+                chart.data.datasets[0].data = dataArr.map(d => d.value);
+                chart.data.datasets[0].borderColor = color;
+                chart.data.datasets[0].backgroundColor = `rgba(${bgR}, ${bgG}, ${bgB}, 0.15)`;
+                chart.data.datasets[0].pointBackgroundColor = color;
+                
+                // Force chart update without animation (smooth refresh)
+                chart.update('none');
+
+                // Calculate Stats
+                const values = dataArr.map(d => d.value);
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                let avg = (values.reduce((a, b) => a + b, 0) / values.length);
+
+                if (currentSensor === 'motion') {
+                    // special case for motion (0-100)
+                    document.getElementById('statMin').innerText = min.toFixed(2);
+                    document.getElementById('statMax').innerText = max.toFixed(2);
+                    document.getElementById('statAvg').innerText = avg.toFixed(2);
+                } else {
+                    document.getElementById('statMin').innerText = min.toFixed(2) + ` ${latest.unit}`;
+                    document.getElementById('statMax').innerText = max.toFixed(2) + ` ${latest.unit}`;
+                    document.getElementById('statAvg').innerText = avg.toFixed(2) + ` ${latest.unit}`;
+                }
+
+            } catch (error) {
+                console.error("Error fetching sensor data:", error);
+            }
+        }
+
+        async function updateDashboard() {
+            console.log(`[${new Date().toLocaleTimeString()}] 🔄 Auto-refresh triggered`);
+            await fetchAllStatus();
+            await fetchSensorData();
+        }
+
+        initTabs();
+        initChart();
+        console.log('✅ Dashboard initialized - Auto-refresh every 5 seconds');
+        updateDashboard();
+
+        // Auto-refresh every 5 seconds
+        setInterval(updateDashboard, 5000);
+    </script>
+</body>
+
+</html>
