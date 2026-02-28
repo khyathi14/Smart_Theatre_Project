@@ -22,15 +22,94 @@
 
 ## Architecture Diagram
 
+## Architecture Diagram (FOG → SQS → Lambda → Dashboard)
+
 ```mermaid
-flowchart LR
-    A[generate_sensors.py\nFOG data generator] -->|Send to queue| C[AWS SQS\nSmartTheatreQueue]
-    C -->|Event source mapping| D[AWS Lambda\nProcessTheatreSensors]
-    D -->|Store data| B[(smart_theatre.db\nLocal SQLite)]
-    D -->|Log executions| E[CloudWatch Logs\n/aws/lambda/ProcessTheatreSensors]
-    D -->|Send metrics| F[CloudWatch Metrics\nSmartTheatre namespace]
-    B -->|Read data| H[Flask API\napp.py]
-    H -->|Serve API| I[dashboard.html\nChart.js auto-refresh 5s]
+flowchart TD
+    subgraph FOG["🔵 FOG LAYER (Local)"]
+        GEN["generate_sensors.py<br/>━━━━━━━━━━━━━━━━<br/>• Python 3.14<br/>• boto3 SQS client<br/>• Generate 5 sensors<br/>• Timestamp ISO format"]
+        SENSORS["Sensors Generated<br/>━━━━━━━━━━━━━━━<br/>• Temperature °C<br/>• Motion %<br/>• Light lux<br/>• Noise dB<br/>• Smoke %"]
+        GEN --> SENSORS
+    end
+
+    subgraph CLOUD["☁️ CLOUD LAYER - AWS"]
+        SQS["Amazon SQS<br/>━━━━━━━━━━━━━━━<br/>SmartTheatreQueue<br/>Region: us-east-1"]
+        LAMBDA["AWS Lambda<br/>━━━━━━━━━━━━━━━<br/>ProcessTheatreSensors<br/>Python 3.12 runtime"]
+        LAMBDA_DB["Lambda Storage<br/>━━━━━━━━━━━━━<br/>/tmp/smart_theatre.db<br/>Ephemeral"]
+        CW_LOGS["CloudWatch Logs<br/>━━━━━━━━━━━━━━━<br/>/aws/lambda/<br/>ProcessTheatreSensors"]
+        CW_METRICS["CloudWatch Metrics<br/>━━━━━━━━━━━━━━━<br/>Invocations<br/>Duration, Errors"]
+        
+        SQS -->|Event source| LAMBDA
+        LAMBDA -->|Store| LAMBDA_DB
+        LAMBDA -->|Log| CW_LOGS
+        LAMBDA -->|Metrics| CW_METRICS
+    end
+
+    subgraph LOCAL["🖥️ LOCAL - YOUR MACHINE"]
+        DB["SQLite Database<br/>━━━━━━━━━━━━━━━<br/>smart_theatre.db<br/>sensor_data table"]
+        FLASK["Flask API<br/>━━━━━━━━━━━━━<br/>Flask 3.0.0<br/>port 5000"]
+        DASHBOARD["Dashboard<br/>━━━━━━━━━━━━<br/>Chart.js 3.9.1<br/>Auto-refresh 5s"]
+        
+        DB -->|Read latest 50| FLASK
+        FLASK -->|GET /api/all-sensors| DASHBOARD
+        FLASK -->|GET /api/data/<sensor>| DASHBOARD
+    end
+
+    SENSORS -->|JSON to SQS| SQS
+    LAMBDA_DB -->|Sync to| DB
+    
+    style FOG fill:#1a4d2e,stroke:#00d89b,stroke-width:3px,color:#fff
+    style CLOUD fill:#0d3b66,stroke:#00b4d8,stroke-width:3px,color:#fff
+    style LOCAL fill:#2a2a2a,stroke:#00e676,stroke-width:3px,color:#fff
+```
+
+### Data Flow Steps
+
+| # | Source | Action | Output | Tools |
+|---|--------|--------|--------|-------|
+| 1 | FOG | Generate 5 sensor readings | JSON `{sensor, value, status, unit, timestamp}` | `generate_sensors.py`, `boto3` |
+| 2 | FOG → Cloud | Send to SQS queue | Message in queue | Amazon SQS |
+| 3 | Cloud | Lambda triggered by SQS | Lambda invocation | AWS Lambda |
+| 4 | Lambda | Parse & validate message | Extracted sensor data | Python 3.12 |
+| 5 | Lambda | Store to SQLite | INSERT record | SQLite in `/tmp/` |
+| 6 | Lambda | Log execution | START, END, REPORT | CloudWatch Logs |
+| 7 | Lambda | Send metrics | Invocation count | CloudWatch Metrics |
+| 8 | Dashboard | Query latest data | 50 records DESC → ASC | Flask API |
+| 9 | Dashboard | Fetch every 5s | GET `/api/data/temperature` | `setInterval()` |
+| 10 | Dashboard | Render charts | Plot points + update | Chart.js |
+
+### Technologies by Layer
+
+**FOG (Data Generation):**
+- Python 3.14
+- boto3 1.26.0 (AWS SDK)
+- python-dotenv 1.0.0
+
+**CLOUD (Processing):**
+- Amazon SQS (message queue)
+- AWS Lambda (serverless)
+- CloudWatch Logs (audit trail)
+- CloudWatch Metrics (monitoring)
+
+**LOCAL (Display):**
+- SQLite 3 (database)
+- Flask 3.0.0 + CORS (backend)
+- Chart.js 3.9.1 (charting)
+- HTML5 + CSS3 + JavaScript (frontend)
+
+### Tools Stack Summary
+```
+┌─────────────────────────────────────────────────────────┐
+│ Development: VS Code | PowerShell | Browser DevTools   │
+├─────────────────────────────────────────────────────────┤
+│ FOG: Python 3.14 + boto3                               │
+├─────────────────────────────────────────────────────────┤
+│ Cloud: AWS (SQS, Lambda, CloudWatch)                   │
+├─────────────────────────────────────────────────────────┤
+│ Local: SQLite + Flask + Chart.js                        │
+└─────────────────────────────────────────────────────────┘
+```
+
 ### Application Stack
 - Python 3.14
 - Flask + Flask-CORS
