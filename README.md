@@ -190,3 +190,5 @@ Then open:
 - Dashboard data is sourced from local SQLite entries written by `generate_sensors.py`.
 - Lambda logs/metrics confirm SQS → Lambda processing in cloud.
 - If CloudWatch log stream list looks stale, use **Live tail** or set recent time range and refresh.
+#   t r i g g e r  
+ 
