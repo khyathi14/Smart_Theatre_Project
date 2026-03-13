@@ -48,7 +48,12 @@ jobs:
 
             if [ ! -d venv ]; then python3 -m venv venv; fi
             source venv/bin/activate
+            pip install --upgrade pip
             pip install -r requirements.txt
 
             sudo systemctl restart smart-theatre
+            sudo systemctl restart smart-theatre-generator
+            sudo systemctl restart nginx
             sudo systemctl status smart-theatre --no-pager
+            sudo systemctl status smart-theatre-generator --no-pager
+            sudo systemctl status nginx --no-pager
