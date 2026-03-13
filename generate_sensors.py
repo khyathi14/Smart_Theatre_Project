@@ -1,11 +1,11 @@
 """
 Sensor Data Generator (FOG Layer)
-Generates random sensor data and sends ONLY to SQS.
-Lambda consumes SQS messages, stores to SQLite.
-Dashboard reads from SQLite populated by Lambda.
+Generates random sensor data, writes to local SQLite for the dashboard,
+and sends to SQS so Lambda can log to CloudWatch.
 
-Data Flow (Strict Single Path):
-  Generator → SQS → Lambda → SQLite → Flask API → Dashboard
+Data Flow:
+  Generator → SQLite → Flask API → Dashboard  (live chart)
+  Generator → SQS → Lambda → CloudWatch       (cloud logging)
 
 Usage: python generate_sensors.py
 """
@@ -14,6 +14,7 @@ import boto3
 import json
 import time
 import random
+import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 import os
@@ -23,10 +24,55 @@ load_dotenv()
 
 QUEUE_URL = os.getenv('SQS_QUEUE_URL')
 AWS_REGION = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+DB_PATH = 'smart_theatre.db'
 
 class SensorGenerator:
     def __init__(self):
         self.sqs = boto3.client('sqs', region_name=AWS_REGION)
+        self.initialize_db()
+
+    def initialize_db(self):
+        """Ensure local SQLite table exists for dashboard"""
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS sensor_data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sensor TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                value REAL NOT NULL,
+                status TEXT NOT NULL,
+                unit TEXT NOT NULL,
+                received_at TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_sensor_timestamp
+            ON sensor_data(sensor, timestamp DESC)
+        ''')
+        conn.commit()
+        conn.close()
+
+    def store_to_sqlite(self, message):
+        """Write sensor reading to local SQLite for the Flask dashboard"""
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO sensor_data (sensor, timestamp, value, status, unit, received_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                message['sensor'],
+                message['timestamp'],
+                message['value'],
+                message['status'],
+                message['unit'],
+                datetime.now().isoformat()
+            ))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[DB ERROR] {e}")
         
     def generate_temperature(self):
         """Generate realistic temperature (22-28°C)"""
@@ -70,7 +116,7 @@ class SensorGenerator:
         return 'normal'
     
     def send_to_sqs(self, sensor_type, value, unit):
-        """Send sensor data ONLY to SQS - Lambda handles SQLite storage for dashboard"""
+        """Write reading to local SQLite (dashboard) and send to SQS (Lambda/CloudWatch)"""
         try:
             message = {
                 'sensor': sensor_type,
@@ -80,7 +126,10 @@ class SensorGenerator:
                 'timestamp': datetime.now().isoformat()
             }
             
-            # Send ONLY to SQS → Lambda will consume and store to SQLite
+            # Write to local SQLite so the Flask dashboard shows live data
+            self.store_to_sqlite(message)
+
+            # Also send to SQS → Lambda will log to CloudWatch
             response = self.sqs.send_message(
                 QueueUrl=QUEUE_URL,
                 MessageBody=json.dumps(message),
