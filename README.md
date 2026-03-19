@@ -1,3 +1,17 @@
+The Smart Theatre Monitoring System is a real-time, event-driven application designed to simulate and monitor environmental conditions inside a theatre using a modern cloud-based architecture. The system follows a strict and structured data pipeline where all sensor data flows through Amazon SQS and AWS Lambda before being stored and visualized. This ensures decoupling, scalability, and reliability in data processing.
+
+The application begins in the fog layer, where a Python script (generate_sensors.py) generates sensor readings every five seconds. These readings include temperature, motion, light, noise, and smoke levels, each accompanied by a timestamp and status. Instead of writing directly to a database, the generated data is sent as JSON messages to an Amazon SQS queue (SmartTheatreQueue). This design ensures that the data generation process remains independent and loosely coupled from downstream systems.
+
+Once messages are available in the queue, AWS Lambda (ProcessTheatreSensors) is automatically triggered. The Lambda function processes each message by validating and extracting the sensor data, then storing it in a SQLite database located in the /tmp directory. Since this storage is ephemeral, it represents temporary cloud-side processing. During execution, Lambda also logs all activities such as invocation details, execution duration, and errors to Amazon CloudWatch Logs, while performance metrics are recorded in CloudWatch Metrics. This provides complete visibility and monitoring of the system.
+
+The processed data is then synchronized to a local SQLite database (smart_theatre.db), which acts as the single source of truth for the application. A Flask-based backend (app.py) reads data from this database and exposes REST APIs that allow the frontend to retrieve sensor values, historical data, and statistics. The frontend dashboard (dashboard.html), built using HTML, CSS, JavaScript, and Chart.js, consumes these APIs and updates the visualizations every five seconds. This creates a near real-time monitoring experience for users.
+
+The entire architecture is divided into three logical layers. The fog layer handles data generation using Python and boto3. The cloud layer is responsible for processing and monitoring using AWS services such as SQS, Lambda, and CloudWatch. The local layer focuses on data storage, API exposure, and visualization using SQLite, Flask, and Chart.js. This separation of concerns makes the system modular and easy to maintain.
+
+To run the project, the user needs to install dependencies, configure AWS credentials in a .env file, start the Flask backend, and run the sensor generator script. Once running, the dashboard can be accessed at http://localhost:5000, where sensor values and timestamps update automatically every five seconds. The correctness of the cloud pipeline can be verified by checking Lambda invocations and CloudWatch logs in the AWS console, as well as querying the local SQLite database.
+
+This project demonstrates key concepts such as event-driven architecture, serverless computing, message queuing, real-time data processing, and cloud monitoring. It provides hands-on experience with integrating local applications and AWS services in a clean and scalable manner. Future improvements could include replacing SQLite with a managed database like Amazon RDS or DynamoDB, adding alerting mechanisms using SNS, and deploying the Flask application to the cloud for full end-to-end hosting.
+
 # Smart Theatre Monitoring System
 
 ## Strict Single Flow: Generate → SQS → Lambda → SQLite → Dashboard
@@ -190,5 +204,6 @@ Then open:
 - Dashboard data is sourced from local SQLite entries written by `generate_sensors.py`.
 - Lambda logs/metrics confirm SQS → Lambda processing in cloud.
 - If CloudWatch log stream list looks stale, use **Live tail** or set recent time range and refresh.
-#   t r i g g e r  
+#   t r i g g e r 
+ 
  
