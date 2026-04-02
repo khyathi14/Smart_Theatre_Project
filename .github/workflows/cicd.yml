@@ -46,6 +46,13 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            if [ -f .env ]; then
+              sudo mkdir -p /etc/smart-theatre
+              sudo cp .env /etc/smart-theatre/.env
+              sudo cp .env /etc/default/smart-theatre-generator
+              sudo chmod 600 /etc/smart-theatre/.env /etc/default/smart-theatre-generator
+            fi
+
             if [ ! -d venv ]; then python3 -m venv venv; fi
             source venv/bin/activate
             pip install --upgrade pip
