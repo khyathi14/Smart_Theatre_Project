@@ -214,12 +214,184 @@
             padding: 15px;
             border: 1px solid #333;
         }
+
+        /* Comfort Score Breakdown Section */
+        .breakdown-section {
+            margin-top: 40px;
+            background: #1a1a1a;
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .breakdown-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .breakdown-subtitle {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .breakdown-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .breakdown-chart-wrapper {
+            position: relative;
+            width: 280px;
+            height: 280px;
+        }
+
+        .breakdown-chart-wrapper canvas {
+            width: 100% !important;
+            height: 100% !important;
+            padding: 0;
+            background: transparent !important;
+            border: none !important;
+        }
+
+        .breakdown-center-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .breakdown-center-score {
+            font-size: 36px;
+            font-weight: bold;
+            color: #00e676;
+            line-height: 1;
+        }
+
+        .breakdown-center-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .breakdown-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 200px;
+        }
+
+        .breakdown-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .breakdown-legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .breakdown-legend-label {
+            color: #ccc;
+            flex: 1;
+        }
+
+        .breakdown-legend-value {
+            color: #00e676;
+            font-weight: bold;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        /* Key Insight Card */
+        .key-insight-section {
+            margin-top: 30px;
+            background: #1a1a1a;
+            padding: 20px 25px;
+            border-radius: 8px;
+            border-left: 4px solid #00e676;
+            border: 1px solid #333;
+            border-left: 4px solid #00e676;
+        }
+
+        .key-insight-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .key-insight-text {
+            font-size: 14px;
+            color: #e0e0e0;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .key-insight-section.insight-excellent {
+            border-left-color: #00e676;
+        }
+
+        .key-insight-section.insight-good {
+            border-left-color: #8bc34a;
+        }
+
+        .key-insight-section.insight-fair {
+            border-left-color: #ffc107;
+        }
+
+        .key-insight-section.insight-poor {
+            border-left-color: #ff9800;
+        }
+
+        .key-insight-section.insight-critical {
+            border-left-color: #ff3d00;
+        }
+
+
     </style>
 </head>
 
 <body>
     <div class="container">
         <h1>Smart Theatre Monitoring</h1>
+
+        <!-- Comfort Score Widget (Top KPI) -->
+        <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #00e676;">
+            <div style="flex: 3;">
+                <div style="font-size: 12px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Comfort Score</div>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="font-size: 48px; font-weight: bold; color: #00e676;" id="comfortScore">--</div>
+                    <div id="comfortStatus" style="font-size: 14px; padding: 8px 12px; border-radius: 6px; background: rgba(0, 230, 118, 0.15); color: #00e676;">Loading...</div>
+                </div>
+                <div id="modeTargets" style="margin-top: 10px; font-size: 12px; color: #9e9e9e;">
+                    Targets: loading...
+                </div>
+            </div>
+            <div style="flex: 1; text-align: right; font-size: 12px; color: #aaa;">
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; color: #aaa;">Mode</div>
+                    <div style="font-size: 13px; color: #00e676; font-weight: 500;">Movie Mode</div>
+                </div>
+            </div>
+        </div>
 
         <!-- Top 5 Tabs -->
         <div class="tabs" id="tabsContainer">
@@ -267,16 +439,236 @@
         <div>
             <canvas id="sensorChart"></canvas>
         </div>
+
+        <!-- Comfort Score Breakdown Section -->
+        <div class="breakdown-section">
+            <div class="breakdown-title">Comfort Score Breakdown</div>
+            <div class="breakdown-subtitle">This chart shows how each environmental factor contributes to the overall comfort score.</div>
+            <div class="breakdown-container">
+                <div class="breakdown-chart-wrapper">
+                    <canvas id="breakdownChart"></canvas>
+                    <div class="breakdown-center-text">
+                        <div class="breakdown-center-score" id="breakdownCenterScore">--</div>
+                        <div class="breakdown-center-label">Overall Score</div>
+                    </div>
+                </div>
+                <div class="breakdown-legend" id="breakdownLegend">
+                    <!-- Legend items injected by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Insight Card -->
+        <div id="keyInsightCard" class="key-insight-section insight-excellent">
+            <div class="key-insight-title"></div>
+            <p class="key-insight-text" id="keyInsightText">Loading insight...</p>
+        </div>
     </div>
 
     <script>
         const sensors = ['motion', 'temperature', 'light', 'noise', 'smoke'];
         let currentSensor = 'temperature'; // default to temp, motion is boring for stats
         let chart;
+        let breakdownChart;
         let currentUnit = '';
+        let selectedMode = 'movie';
+        
+        // Store sensor history for trend analysis
+        let sensorHistory = {
+            motion: [],
+            temperature: [],
+            light: [],
+            noise: [],
+            smoke: []
+        };
+        
+
+        
+        // Store current sensor statuses
+        let sensorStatuses = {
+            motion: 'normal',
+            temperature: 'normal',
+            light: 'normal',
+            noise: 'normal',
+            smoke: 'normal'
+        };
+
+        // Color palette for breakdown chart
+        const breakdownColors = {
+            motion: '#FF6B6B',
+            temperature: '#4ECDC4',
+            noise: '#FFE66D',
+            light: '#95E1D3',
+            smoke: '#C7CEEA'
+        };
+
+        const componentLabels = {
+            motion: 'Motion',
+            temperature: 'Temperature',
+            noise: 'Noise',
+            light: 'Light',
+            smoke: 'Smoke'
+        };
 
         function getStatusClasses(statusStr) {
             return statusStr.includes("Critical") ? "status-badge status-alert" : "status-badge status-normal";
+        }
+
+        // Calculate trend direction based on last 5 values
+        function calculateTrend(sensorName) {
+            const history = sensorHistory[sensorName];
+            if (history.length < 5) return 'stable'; // Not enough data
+            
+            const recentValues = history.slice(-5);
+            const midpoint = Math.floor(recentValues.length / 2);
+            const firstHalf = recentValues.slice(0, midpoint);
+            const secondHalf = recentValues.slice(midpoint);
+            
+            const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+            const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+            
+            const change = avgSecond - avgFirst;
+            if (Math.abs(change) < avgFirst * 0.05) return 'stable'; // Less than 5% change
+            return change > 0 ? 'increasing' : 'decreasing';
+        }
+
+        // Generate key insight text
+        function generateKeyInsight(score, statuses, sensorData) {
+            let insight = '';
+            
+            // Base insight from score
+            if (score >= 95) {
+                insight = "Excellent conditions. Ideal environment for movie experience.";
+            } else if (score >= 85) {
+                insight = "Good overall comfort with minor variations.";
+            } else if (score >= 70) {
+                insight = "Moderate comfort. Some parameters are slightly off optimal range.";
+            } else {
+                insight = "Comfort is impacted. Multiple parameters require attention.";
+            }
+            
+            // Add sensor-specific insights
+            const addons = [];
+            
+            if (statuses.light && (statuses.light === 'warning' || statuses.light === 'alert')) {
+                addons.push("Lighting levels are affecting viewing experience.");
+            }
+            if (statuses.noise && (statuses.noise === 'warning' || statuses.noise === 'alert')) {
+                const noiseTrend = calculateTrend('noise');
+                addons.push(`Audio levels may need adjustment (${noiseTrend} trend).`);
+            }
+            if (statuses.temperature && (statuses.temperature === 'warning' || statuses.temperature === 'alert')) {
+                const tempTrend = calculateTrend('temperature');
+                addons.push(`Temperature is slightly outside comfort range (${tempTrend} trend).`);
+            }
+            if (statuses.motion && (statuses.motion === 'warning' || statuses.motion === 'alert')) {
+                addons.push("Unusual movement detected in theatre.");
+            }
+            if (statuses.smoke && (statuses.smoke === 'warning' || statuses.smoke === 'alert')) {
+                addons.push("Air quality deviation detected.");
+            }
+            
+            // Add trend info if no specific alerts
+            if (addons.length === 0) {
+                const tempTrend = calculateTrend('temperature');
+                const noiseTrend = calculateTrend('noise');
+                const lightTrend = calculateTrend('light');
+                
+                if (tempTrend !== 'stable') {
+                    addons.push(`Temperature is showing a ${tempTrend} trend.`);
+                }
+                if (noiseTrend !== 'stable') {
+                    addons.push(`Noise levels are ${noiseTrend}.`);
+                }
+            }
+            
+            if (addons.length > 0) {
+                insight += ' ' + addons.slice(0, 1).join(' ');
+            }
+            
+            return insight;
+        }
+
+        // Update key insight card
+        function updateKeyInsight(score, statuses, sensorData) {
+            const insight = generateKeyInsight(score, statuses, sensorData);
+            document.getElementById('keyInsightText').innerText = insight;
+            
+            // Update card color based on score
+            const card = document.getElementById('keyInsightCard');
+            card.className = 'key-insight-section';
+            if (score >= 90) {
+                card.classList.add('insight-excellent');
+            } else if (score >= 80) {
+                card.classList.add('insight-good');
+            } else if (score >= 70) {
+                card.classList.add('insight-fair');
+            } else if (score >= 50) {
+                card.classList.add('insight-poor');
+            } else {
+                card.classList.add('insight-critical');
+            }
+        }
+
+        function handleModeChange() {
+            selectedMode = 'movie';
+            // Reset chart to avoid mixed-history visuals when switching operation modes.
+            if (chart) {
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+                chart.update('none');
+            }
+            fetchComfortScore();
+            fetchSensorData();
+        }
+
+        // Fetch and display comfort score
+        async function fetchComfortScore() {
+            try {
+                const res = await fetch(`/api/comfort-score?mode=${selectedMode}`);
+                const data = await res.json();
+                
+                const score = data.score;
+                const status = data.status;
+                const comps = data.components;
+                const targets = data.targets;
+                const modeLabel = data.mode_label;
+                const disturbanceDetected = data.disturbance_detected;
+                
+                // Update main score
+                document.getElementById('comfortScore').innerText = score;
+                document.getElementById('comfortScore').style.color = 
+                    score >= 75 ? '#00e676' : score >= 50 ? '#ffc107' : '#ff3d00';
+                
+                // Update status label
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                const statusEl = document.getElementById('comfortStatus');
+                statusEl.innerText = disturbanceDetected ? 'Disturbance' : statusLabel;
+                statusEl.style.background = score >= 85 ? 'rgba(0, 230, 118, 0.15)' : 
+                                           score >= 70 ? 'rgba(139, 195, 74, 0.15)' :
+                                           score >= 55 ? 'rgba(255, 193, 7, 0.15)' :
+                                           score >= 40 ? 'rgba(255, 152, 0, 0.15)' :
+                                           'rgba(255, 61, 0, 0.15)';
+                statusEl.style.color = score >= 85 ? '#00e676' : score >= 70 ? '#8bc34a' : score >= 55 ? '#ffc107' : score >= 40 ? '#ff9800' : '#ff3d00';
+                statusEl.title = modeLabel;
+
+                // Update mode target text (useful for explanation/demo)
+                document.getElementById('modeTargets').innerText =
+                    `Targets (${modeLabel}): Motion ${targets.motion.ideal[0]}-${targets.motion.ideal[1]} ${targets.motion.unit}, ` +
+                    `Temp ${targets.temperature.ideal[0]}-${targets.temperature.ideal[1]} ${targets.temperature.unit}, ` +
+                    `Noise ${targets.noise.ideal[0]}-${targets.noise.ideal[1]} ${targets.noise.unit}, ` +
+                    `Light ${targets.light.ideal[0]}-${targets.light.ideal[1]} ${targets.light.unit}, ` +
+                    `Smoke ${targets.smoke.ideal[0]}-${targets.smoke.ideal[1]} ${targets.smoke.unit}`;
+                
+                // Update breakdown chart
+                updateBreakdownChart(score, comps);
+                
+                // Update key insight
+                updateKeyInsight(score, sensorStatuses, {});
+                
+            } catch (err) {
+                console.error("Error fetching comfort score", err);
+            }
         }
 
         // Initialize tabs layout
@@ -315,6 +707,111 @@
             }
 
             fetchSensorData();
+        }
+
+        // Initialize Breakdown Donut Chart
+        function initBreakdownChart() {
+            const ctx = document.getElementById('breakdownChart').getContext('2d');
+            if (breakdownChart) breakdownChart.destroy();
+
+            breakdownChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [
+                        componentLabels.motion,
+                        componentLabels.temperature,
+                        componentLabels.noise,
+                        componentLabels.light,
+                        componentLabels.smoke
+                    ],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            breakdownColors.motion,
+                            breakdownColors.temperature,
+                            breakdownColors.noise,
+                            breakdownColors.light,
+                            breakdownColors.smoke
+                        ],
+                        borderColor: '#1a1a1a',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    animation: {
+                        duration: 500
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            padding: 10,
+                            borderRadius: 4,
+                            titleFont: { size: 12 },
+                            bodyFont: { size: 12 },
+                            callbacks: {
+                                label: function(context) {
+                                    return `: ${context.raw.toFixed(1)} points`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update Breakdown Chart with component data
+        function updateBreakdownChart(totalScore, components) {
+            const motionEarned = parseFloat(components.motion.earned);
+            const tempEarned = parseFloat(components.temperature.earned);
+            const noiseEarned = parseFloat(components.noise.earned);
+            const lightEarned = parseFloat(components.light.earned);
+            const smokeEarned = parseFloat(components.smoke.earned);
+
+            breakdownChart.data.datasets[0].data = [
+                motionEarned,
+                tempEarned,
+                noiseEarned,
+                lightEarned,
+                smokeEarned
+            ];
+            breakdownChart.update('none');
+
+            // Update center text
+            document.getElementById('breakdownCenterScore').innerText = totalScore;
+
+            // Update legend
+            updateBreakdownLegend(components);
+        }
+
+        // Update Breakdown Legend
+        function updateBreakdownLegend(components) {
+            const legend = document.getElementById('breakdownLegend');
+            legend.innerHTML = '';
+
+            const items = [
+                { key: 'motion', label: componentLabels.motion, earned: components.motion.earned, max: components.motion.max },
+                { key: 'temperature', label: componentLabels.temperature, earned: components.temperature.earned, max: components.temperature.max },
+                { key: 'noise', label: componentLabels.noise, earned: components.noise.earned, max: components.noise.max },
+                { key: 'light', label: componentLabels.light, earned: components.light.earned, max: components.light.max },
+                { key: 'smoke', label: componentLabels.smoke, earned: components.smoke.earned, max: components.smoke.max }
+            ];
+
+            items.forEach(item => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'breakdown-legend-item';
+                legendItem.innerHTML = `
+                    <div class="breakdown-legend-color" style="background-color: ${breakdownColors[item.key]};"></div>
+                    <div class="breakdown-legend-label">${item.label}</div>
+                    <div class="breakdown-legend-value">${item.earned.toFixed(1)}/${item.max.toFixed(0)}</div>
+                `;
+                legend.appendChild(legendItem);
+            });
         }
 
         // Initialize Chart
@@ -380,7 +877,7 @@
         // Fetch overall status for all tabs periodically
         async function fetchAllStatus() {
             try {
-                const res = await fetch('/api/all-sensors');
+                const res = await fetch(`/api/all-sensors?mode=${selectedMode}`);
                 const data = await res.json();
 
                 sensors.forEach(sensor => {
@@ -391,6 +888,15 @@
                                           latest.status === 'warning' ? 'Warning' : 'Optimal';
                         badge.className = getStatusClasses(statusText);
                         badge.innerText = statusText;
+
+                        // Update sensor status for insight generation
+                        sensorStatuses[sensor] = latest.status;
+                        
+                        // Add latest value to history for trend analysis (keep last 20)
+                        if (sensorHistory[sensor].length >= 20) {
+                            sensorHistory[sensor].shift();
+                        }
+                        sensorHistory[sensor].push(latest.value);
 
                         // Keep active tab border colored based on state
                         if (sensor === currentSensor) {
@@ -408,7 +914,7 @@
         async function fetchSensorData() {
             const limit = document.getElementById('recordLimit').value;
             try {
-                const response = await fetch(`/api/data/${currentSensor}?limit=${limit}`);
+                const response = await fetch(`/api/data/${currentSensor}?limit=${limit}&mode=${selectedMode}`);
                 const result = await response.json();
 
                 const dataArr = result.data;
@@ -417,12 +923,15 @@
                     return;
                 }
 
+                // Store historical data for trend analysis (keep last 20 values)
+                sensorHistory[currentSensor] = dataArr.map(d => d.value);
+                if (sensorHistory[currentSensor].length > 20) {
+                    sensorHistory[currentSensor] = sensorHistory[currentSensor].slice(-20);
+                }
+
                 const latest = dataArr[dataArr.length - 1];
                 const isAlert = latest.status === 'alert';
                 currentUnit = latest.unit;
-
-                // Console log for debugging (shows auto-refresh is working)
-                console.log(`[${new Date().toLocaleTimeString()}] Updated ${currentSensor}: ${latest.value} ${latest.unit} (last: ${latest.timestamp.split('T')[1].substring(0,8)})`);
 
                 // Update UI Texts (no timestamp)
                 document.getElementById('currentValue').innerText = `${latest.value} ${latest.unit}`;
@@ -476,14 +985,14 @@
         }
 
         async function updateDashboard() {
-            console.log(`[${new Date().toLocaleTimeString()}] 🔄 Auto-refresh triggered`);
+            await fetchComfortScore();
             await fetchAllStatus();
             await fetchSensorData();
         }
 
         initTabs();
         initChart();
-        console.log('✅ Dashboard initialized - Auto-refresh every 5 seconds');
+        initBreakdownChart();
         updateDashboard();
 
         // Auto-refresh every 5 seconds

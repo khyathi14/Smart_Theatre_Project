@@ -51,7 +51,6 @@ def lambda_handler(event, context):
             try:
                 # Parse message
                 body = json.loads(record['body'])
-                sensor_type = record.get('messageAttributes', {}).get('SensorType', {}).get('stringValue', 'unknown')
                 
                 # Extract data
                 sensor_data = {
