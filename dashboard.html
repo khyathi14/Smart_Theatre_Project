@@ -964,6 +964,22 @@
             });
         }
 
+        function buildLiveTimelineLabels(pointCount, intervalSeconds = 5) {
+            const labels = [];
+            const endTime = new Date();
+
+            for (let index = pointCount - 1; index >= 0; index -= 1) {
+                const labelTime = new Date(endTime.getTime() - (index * intervalSeconds * 1000));
+                labels.push(labelTime.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }));
+            }
+
+            return labels;
+        }
+
         async function fetchSensorData() {
             const limit = document.getElementById('recordLimit').value;
             try {
@@ -1003,10 +1019,8 @@
                 const bgG = isAlert ? 61 : 230;
                 const bgB = isAlert ? 0 : 118;
 
-                // Extract just the time from timestamp (HH:MM:SS format)
-                chart.data.labels = dataArr.map(d => {
-                    return formatTimeOnly(d.timestamp);
-                });
+                // Use a live 5-second timeline so the graph refreshes with current timestamps.
+                chart.data.labels = buildLiveTimelineLabels(dataArr.length, 5);
                 chart.data.datasets[0].data = dataArr.map(d => d.value);
                 chart.data.datasets[0].borderColor = color;
                 chart.data.datasets[0].backgroundColor = `rgba(${bgR}, ${bgG}, ${bgB}, 0.15)`;
