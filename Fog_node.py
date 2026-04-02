@@ -25,9 +25,25 @@ try:
 except ImportError:
     requests = None
 
-# Load credentials from .env next to this script so systemd services can find it.
 BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / '.env')
+
+
+def load_environment_files():
+    """Load env vars from common deployment locations."""
+    candidate_paths = [
+        BASE_DIR / '.env',
+        Path.cwd() / '.env',
+        Path.home() / '.env',
+        Path('/etc/smart-theatre/.env'),
+        Path('/etc/default/smart-theatre-generator'),
+    ]
+
+    for path in candidate_paths:
+        if path.exists():
+            load_dotenv(path, override=False)
+
+
+load_environment_files()
 
 QUEUE_URL = os.getenv('SQS_QUEUE_URL')
 AWS_REGION = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
@@ -327,7 +343,6 @@ def main():
     print("="*70)
     print("\nData Flow: Generator → SQS → Lambda → SQLite → Dashboard\n")
     
-    # Validate config
     if not QUEUE_URL or QUEUE_URL == '':
         print("[ERROR] SQS_QUEUE_URL not set in .env file!")
         print("[ACTION] Edit .env and set: SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/...")
