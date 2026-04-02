@@ -15,6 +15,7 @@ from flask_cors import CORS
 from datetime import datetime
 import sqlite3
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
@@ -23,7 +24,8 @@ app = Flask(__name__)
 CORS(app)
 
 # SQLite database path (same as Lambda uses)
-DB_PATH = 'smart_theatre.db'
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = str(BASE_DIR / 'smart_theatre.db')
 
 COMFORT_PROFILES = {
     'movie': {
@@ -588,7 +590,7 @@ if __name__ == '__main__':
     print("🎬 Smart Theatre Dashboard - SQLITE MODE")
     print("="*60)
     print("✓ Data Source: SQLite (updated by generator)")
-    print("✓ Database: smart_theatre.db")
+    print(f"✓ Database: {DB_PATH}")
     print("✓ Data Flow: FOG → (SQS → Lambda/CloudWatch) + (SQLite → Dashboard)")
     print("="*60)
     print("\nVisit: http://localhost:5000/")

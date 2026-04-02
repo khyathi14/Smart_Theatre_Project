@@ -893,7 +893,7 @@
         // Fetch overall status for all tabs periodically
         async function fetchAllStatus() {
             try {
-                const res = await fetch(`/api/all-sensors?mode=${selectedMode}`);
+                const res = await fetch(`/api/all-sensors?mode=${selectedMode}`, { cache: 'no-store' });
                 const data = await res.json();
 
                 sensors.forEach(sensor => {
@@ -983,7 +983,7 @@
         async function fetchSensorData() {
             const limit = document.getElementById('recordLimit').value;
             try {
-                const response = await fetch(`/api/data/${currentSensor}?limit=${limit}&mode=${selectedMode}`);
+                const response = await fetch(`/api/data/${currentSensor}?limit=${limit}&mode=${selectedMode}`, { cache: 'no-store' });
                 const result = await response.json();
 
                 const dataArr = result.data;
@@ -1053,9 +1053,11 @@
 
         async function updateDashboard() {
             document.getElementById('currentTimestamp').innerText = 'Refreshing live data...';
-            await fetchComfortScore();
-            await fetchAllStatus();
-            await fetchSensorData();
+            await Promise.all([
+                fetchComfortScore(),
+                fetchAllStatus(),
+                fetchSensorData()
+            ]);
         }
 
         initTabs();

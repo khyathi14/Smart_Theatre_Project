@@ -48,7 +48,7 @@ load_environment_files()
 DEFAULT_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/515610050494/SmartTheatreQueue'
 QUEUE_URL = os.getenv('SQS_QUEUE_URL') or DEFAULT_QUEUE_URL
 AWS_REGION = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
-DB_PATH = 'smart_theatre.db'
+DB_PATH = str(BASE_DIR / 'smart_theatre.db')
 DEFAULT_MODE = os.getenv('THEATRE_MODE', 'movie')
 DATA_SOURCE = os.getenv('DATA_SOURCE', 'hybrid').strip().lower()
 LIVE_LATITUDE = float(os.getenv('LIVE_LATITUDE', '51.5072'))
