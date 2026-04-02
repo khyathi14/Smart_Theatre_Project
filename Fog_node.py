@@ -18,14 +18,16 @@ import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
 try:
     import requests
 except ImportError:
     requests = None
 
-# Load credentials from .env
-load_dotenv()
+# Load credentials from .env next to this script so systemd services can find it.
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / '.env')
 
 QUEUE_URL = os.getenv('SQS_QUEUE_URL')
 AWS_REGION = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
