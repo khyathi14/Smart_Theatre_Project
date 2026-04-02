@@ -298,7 +298,7 @@ class SensorGenerator:
                 'status': self.determine_status(sensor_type, value),
                 'unit': unit,
                 'mode': self.mode,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().astimezone().isoformat()
             }
             
             # Write to local SQLite so the Flask dashboard shows live data

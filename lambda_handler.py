@@ -59,7 +59,7 @@ def lambda_handler(event, context):
                     'status': body.get('status'),
                     'unit': body.get('unit'),
                     'timestamp': body.get('timestamp'),
-                    'received_at': datetime.now().isoformat()
+                    'received_at': datetime.now().astimezone().isoformat()
                 }
                 
                 # Store to SQLite
