@@ -1,119 +1,80 @@
-# Smart Theatre Monitoring System
+Smart Theatre Monitoring System
+Overview
 
-Smart Theatre is a fog-to-edge monitoring demo that generates sensor readings, pulls live temperature and smoke data from public APIs, sends readings through AWS SQS and Lambda, stores them in SQLite, and visualizes the results in a Flask dashboard.
+This project is designed to monitor theatre conditions using sensors and process the data through Fog and Cloud layers. The system collects real-time environmental data, processes it efficiently, and displays insights on a dashboard.
 
-MQTT publishing is also supported from the fog generator so sensor readings can be consumed by pub/sub subscribers in parallel with SQS.
+Architecture Layers
+1. Sensor Layer
+Sensors are placed inside the theatre environment
+Types of sensors used:
+Temperature sensor
+Smoke sensor
+Motion sensor
+Noise sensor
+Light sensor
+These sensors continuously collect real-time data
+2. Fog Layer
+Acts as an intermediate processing layer between sensors and cloud
+Components:
+Eclipse Mosquitto Broker
+Handles communication using MQTT protocol (port 8883)
+Fog Node (fog_node.py)
+Receives sensor data
+Fetches live data from Open-Meteo APIs
+Data Processor
+Cleans and processes incoming data
+Cloud Dispatcher
+Sends processed data to the cloud using HTTP
+3. Cloud Layer (AWS)
+Responsible for storage, processing, and monitoring
+Components:
+Amazon SQS (SmartTheatreQueue)
+Stores incoming data messages from fog layer
+AWS Lambda
+Triggered by SQS
+Processes data in real time
+Amazon EC2 (Flask Backend)
+Handles API requests
+Reads and writes data to database
+Amazon CloudWatch
+Stores logs and monitors system performance
+4. Data Storage
+SQLite Database
+Stores processed data
+Used by backend for retrieval and updates
+5. Dashboard
+Displays processed data in visual format
+Shows real-time insights like:
+Temperature trends
+Air quality conditions
+Alerts for abnormal conditions
+Data Flow
+Sensors collect data from theatre
+Data is sent to Mosquitto Broker using MQTT
+Fog Node receives and processes the data
+Processed data is sent to Cloud via HTTP
+Data is stored in SQS queue
+Lambda processes data from queue
+EC2 backend stores data in SQLite
+Dashboard displays final output
+APIs Used
+Weather API:
+https://api.open-meteo.com/v1/forecast
+Air Quality API:
+https://air-quality-api.open-meteo.com/v1/air-quality
+Technologies Used
+Python (Fog Node & Backend)
+MQTT (Mosquitto Broker)
+AWS (SQS, Lambda, EC2, CloudWatch)
+Flask (Backend API)
+SQLite (Database)
+Chart.js (Dashboard visualization)
+Key Features
+Real-time monitoring system
+Fog computing to reduce cloud load
+Cloud-based processing and storage
+Scalable and efficient architecture
+Live environmental data integration
+Conclusion
 
-## Current Flow
-
-1. `Fog_node.py` generates sensor readings every 5 seconds in the fog layer.
-2. Temperature comes from the Open-Meteo weather API and smoke comes from the Open-Meteo air-quality API.
-3. Sensor payloads are published to MQTT topics and also sent to Amazon SQS in the cloud layer.
-4. AWS Lambda processes the SQS messages and logs them to CloudWatch.
-5. AWS Lambda writes sensor readings into the local SQLite database (`smart_theatre.db`) on the backend host.
-6. Flask reads from local SQLite and serves the dashboard API.
-7. The edge layer is the browser dashboard that refreshes every 5 seconds and shows live values, timestamps, and trends.
-
-## Architecture Diagram
-
-```mermaid
-flowchart TD
-    subgraph FOG["Fog Layer"]
-        GEN["Fog_node.py\nSensor generator\n5 second interval"]
-        TEMPAPI["Open-Meteo Weather API\nLive temperature"]
-        SMOKEAPI["Open-Meteo Air-Quality API\nLive smoke proxy"]
-        SENSORS["Temperature\nMotion\nLight\nNoise\nSmoke"]
-        TEMPAPI --> GEN
-        SMOKEAPI --> GEN
-        GEN --> SENSORS
-    end
-
-    subgraph CLOUD["Cloud Layer"]
-        SQS["Amazon SQS\nSmartTheatreQueue"]
-        LAMBDA["AWS Lambda\nProcessTheatreSensors"]
-        CW["CloudWatch Logs\nCloudWatch Metrics"]
-        SQS --> LAMBDA
-        LAMBDA --> CW
-    end
-
-    subgraph EDGE["Edge / Local Layer"]
-        SQLITE["SQLite\nsmart_theatre.db"]
-        FLASK["Flask API\napp.py"]
-        DASH["dashboard.html\nBrowser dashboard\nChart.js\nAuto-refresh every 5 seconds"]
-        USER["User Browser"]
-        SQLITE --> FLASK
-        FLASK --> DASH
-        USER --> DASH
-    end
-
-    SENSORS -->|JSON payloads| SQS
-
-    style FOG fill:#1a4d2e,stroke:#00d89b,stroke-width:2px,color:#fff
-    style CLOUD fill:#0d3b66,stroke:#00b4d8,stroke-width:2px,color:#fff
-    style EDGE fill:#2a2a2a,stroke:#00e676,stroke-width:2px,color:#fff
-```
-
-## Layer Summary
-
-### Fog Layer
-- `Fog_node.py` creates the sensor stream.
-- Values are generated every 5 seconds.
-- Temperature is fetched from the Open-Meteo weather API.
-- Smoke is fetched from the Open-Meteo air-quality API.
-- The generator sends JSON readings to SQS.
-
-### Cloud Layer
-- SQS decouples the generator from processing.
-- Lambda consumes queue messages.
-- CloudWatch captures logs and metrics.
-- EC2 can host the Flask backend, but SQLite remains a local file on that host.
-
-### Edge / Local Layer
-- The browser dashboard renders `dashboard.html`.
-- The dashboard refreshes every 5 seconds and uses live timestamps.
-- Users see the live charts, comfort score, and breakdown panels.
-
-## Files
-
-- `Fog_node.py` - fog-layer sensor generator
-- `app.py` - Flask backend
-- `lambda_handler.py` - AWS Lambda processor
-- `dashboard.html` - browser dashboard
-- `requirements.txt` - Python dependencies
-
-## Run Locally
-
-```bash
-pip install -r requirements.txt
-python app.py
-python Fog_node.py
-```
-
-## MQTT Configuration (optional)
-
-Set these environment variables in `.env` to enable and configure MQTT publishing from `Fog_node.py`:
-
-- `MQTT_ENABLED=true`
-- `MQTT_BROKER_HOST=localhost`
-- `MQTT_BROKER_PORT=8883`
-- `MQTT_USERNAME=`
-- `MQTT_PASSWORD=`
-- `MQTT_BASE_TOPIC=theatre/sensors`
-- `MQTT_ALERTS_TOPIC=theatre/alerts`
-- `MQTT_KEEPALIVE=60`
-- `MQTT_USE_TLS=true`
-- `MQTT_CA_CERT=certs/ca.crt`
-- `MQTT_CLIENT_CERT=`
-- `MQTT_CLIENT_KEY=`
-- `MQTT_TLS_INSECURE=false`
-
-Published topics:
-
-- `theatre/sensors/<sensor>` for all readings
-- `theatre/alerts/<sensor>` for warning/alert readings
-
-## Notes
-
-- `movie` mode is the only supported mode.
-- The dashboard reads SQLite data written by `Fog_node.py`.
-- `.env`, `smart_theatre.db`, and `__pycache__` should stay out of Git.
+This system demonstrates how IoT, Fog Computing, and Cloud Computing can be integrated to build a smart monitoring solution. It improves real-time decision making and reduces latency by processing data closer to the source.
