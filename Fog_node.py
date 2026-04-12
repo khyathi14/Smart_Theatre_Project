@@ -1,11 +1,12 @@
 """
 Sensor Data Generator (FOG Layer)
 Generates random sensor data, writes to local SQLite for the dashboard,
-and sends to SQS so Lambda can log to CloudWatch.
+publishes to MQTT topics, and sends to SQS so Lambda can log to CloudWatch.
 
 Data Flow:
-  Generator → SQLite → Flask API → Dashboard  (live chart)
-  Generator → SQS → Lambda → CloudWatch       (cloud logging)
+    Generator → SQLite → Flask API → Dashboard  (live chart)
+    Generator → MQTT Broker / IoT Core          (pub/sub stream)
+    Generator → SQS → Lambda → CloudWatch       (cloud logging)
 
 Usage: python Fog_node.py
 """
@@ -24,6 +25,11 @@ try:
     import requests
 except ImportError:
     requests = None
+
+try:
+    import paho.mqtt.client as mqtt
+except ImportError:
+    mqtt = None
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -53,7 +59,25 @@ DEFAULT_MODE = os.getenv('THEATRE_MODE', 'movie')
 DATA_SOURCE = os.getenv('DATA_SOURCE', 'hybrid').strip().lower()
 LIVE_LATITUDE = float(os.getenv('LIVE_LATITUDE', '51.5072'))
 LIVE_LONGITUDE = float(os.getenv('LIVE_LONGITUDE', '-0.1276'))
-LIVE_CACHE_SECONDS = int(os.getenv('LIVE_CACHE_SECONDS', '60'))
+LIVE_CACHE_SECONDS = int(os.getenv('LIVE_mCACHE_SECONDS', '60'))
+MQTT_ENABLED = os.getenv('MQTT_ENABLED', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
+MQTT_BROKER_HOST = os.getenv('MQTT_BROKER_HOST', 'localhost')
+MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', '8883'))
+MQTT_USERNAME = os.getenv('MQTT_USERNAME', '').strip()
+MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '').strip()
+MQTT_BASE_TOPIC = os.getenv('MQTT_BASE_TOPIC', 'theatre/sensors').strip('/')
+MQTT_ALERTS_TOPIC = os.getenv('MQTT_ALERTS_TOPIC', 'theatre/alerts').strip('/')
+MQTT_KEEPALIVE = int(os.getenv('MQTT_KEEPALIVE', '60'))
+_mqtt_use_tls_env = os.getenv('MQTT_USE_TLS')
+if _mqtt_use_tls_env is None:
+    # If user selected secure MQTT port but omitted MQTT_USE_TLS, infer TLS.
+    MQTT_USE_TLS = MQTT_BROKER_PORT == 8883
+else:
+    MQTT_USE_TLS = _mqtt_use_tls_env.strip().lower() in {'1', 'true', 'yes', 'on'}
+MQTT_CA_CERT = os.getenv('MQTT_CA_CERT', '').strip()
+MQTT_CLIENT_CERT = os.getenv('MQTT_CLIENT_CERT', '').strip()
+MQTT_CLIENT_KEY = os.getenv('MQTT_CLIENT_KEY', '').strip()
+MQTT_TLS_INSECURE = os.getenv('MQTT_TLS_INSECURE', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast'
 AIR_API_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality'
@@ -87,7 +111,122 @@ class SensorGenerator:
         self.live_snapshot = None
         self.live_snapshot_ts = 0
         self.sqs = boto3.client('sqs', region_name=AWS_REGION)
+        self.mqtt_client = None
+        self.mqtt_connected = False
         self.initialize_db()
+        self.initialize_mqtt()
+
+    def initialize_mqtt(self):
+        """Connect to MQTT broker when enabled; continue without it if unavailable."""
+        if not MQTT_ENABLED:
+            print("[MQTT] Disabled by MQTT_ENABLED=false")
+            return
+
+        if mqtt is None:
+            print("[MQTT WARN] paho-mqtt not installed. Run: pip install paho-mqtt")
+            return
+
+        try:
+            client_id = f"smart-theatre-fog-{int(time.time())}"
+            client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
+            client.on_connect = self.on_mqtt_connect
+            client.on_disconnect = self.on_mqtt_disconnect
+
+            if MQTT_USERNAME:
+                client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD or None)
+
+            if MQTT_USE_TLS:
+                tls_kwargs = {}
+                ca_cert_path = MQTT_CA_CERT
+                if not ca_cert_path:
+                    local_ca = BASE_DIR / 'certs' / 'ca.crt'
+                    if local_ca.exists():
+                        ca_cert_path = str(local_ca)
+
+                if ca_cert_path:
+                    tls_kwargs['ca_certs'] = ca_cert_path
+                if MQTT_CLIENT_CERT:
+                    tls_kwargs['certfile'] = MQTT_CLIENT_CERT
+                if MQTT_CLIENT_KEY:
+                    tls_kwargs['keyfile'] = MQTT_CLIENT_KEY
+                client.tls_set(**tls_kwargs)
+                client.tls_insecure_set(MQTT_TLS_INSECURE)
+
+            client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_KEEPALIVE)
+            client.loop_start()
+            self.mqtt_client = client
+            print(f"[MQTT] Connecting to {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}")
+        except Exception as e:
+            self.mqtt_client = None
+            self.mqtt_connected = False
+            print(f"[MQTT WARN] Unable to initialize MQTT client: {e}")
+
+    def on_mqtt_connect(self, client, userdata, flags, rc):
+        """Track broker connection state."""
+        if rc == 0:
+            self.mqtt_connected = True
+            print("[MQTT] Connected")
+        else:
+            self.mqtt_connected = False
+            print(f"[MQTT WARN] Connection failed with code {rc}")
+
+    def on_mqtt_disconnect(self, client, userdata, rc):
+        """Track broker disconnects."""
+        self.mqtt_connected = False
+        if rc != 0:
+            print(f"[MQTT WARN] Unexpected disconnect (code {rc})")
+
+    def try_reconnect_mqtt(self):
+        """Attempt a quick reconnect when client exists but is disconnected."""
+        if not self.mqtt_client:
+            return False
+
+        try:
+            self.mqtt_client.reconnect()
+            return True
+        except Exception as e:
+            print(f"[MQTT WARN] Reconnect failed: {e}")
+            return False
+
+    def publish_to_mqtt(self, message):
+        """Publish reading to sensor topic and alert topic for non-normal states."""
+        if not self.mqtt_client:
+            return False
+
+        if not self.mqtt_connected:
+            self.try_reconnect_mqtt()
+            if not self.mqtt_connected:
+                print("[MQTT WARN] Skipping publish because MQTT is disconnected")
+                return False
+
+        sensor = message.get('sensor', 'unknown')
+        sensor_topic = f"{MQTT_BASE_TOPIC}/{sensor}"
+
+        try:
+            payload = json.dumps(message)
+            result = self.mqtt_client.publish(sensor_topic, payload=payload, qos=1, retain=False)
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                print(f"[MQTT WARN] Publish failed to {sensor_topic}, rc={result.rc}")
+                return False
+
+            if message.get('status') in {'warning', 'alert'}:
+                alert_topic = f"{MQTT_ALERTS_TOPIC}/{sensor}"
+                self.mqtt_client.publish(alert_topic, payload=payload, qos=1, retain=False)
+
+            print(f"[MQTT] Published {sensor_topic}")
+            return True
+        except Exception as e:
+            print(f"[MQTT WARN] Publish error: {e}")
+            return False
+
+    def shutdown(self):
+        """Cleanly stop MQTT network loop."""
+        if self.mqtt_client:
+            try:
+                self.mqtt_client.loop_stop()
+                self.mqtt_client.disconnect()
+            except Exception:
+                pass
 
     def normalize_mode(self, mode):
         """Normalize supported mode aliases."""
@@ -291,7 +430,7 @@ class SensorGenerator:
         return 'alert'
     
     def send_to_sqs(self, sensor_type, value, unit):
-        """Write reading to local SQLite (dashboard) and send to SQS (Lambda/CloudWatch)"""
+        """Write reading to SQLite, publish via MQTT, and send to SQS."""
         try:
             message = {
                 'sensor': sensor_type,
@@ -304,6 +443,9 @@ class SensorGenerator:
             
             # Write to local SQLite so the Flask dashboard shows live data
             self.store_to_sqlite(message)
+
+            # Publish to MQTT topics (best effort, non-blocking for SQS path).
+            self.publish_to_mqtt(message)
 
             # Also send to SQS → Lambda will log to CloudWatch
             response = self.sqs.send_message(
@@ -355,6 +497,10 @@ def main():
         print(f"[MODE] Running generator in: {generator.mode}\n")
         print(f"[DATA SOURCE] {generator.data_source} (live temperature + smoke proxy in hybrid/live)")
         print(f"[LIVE COORDS] lat={LIVE_LATITUDE}, lon={LIVE_LONGITUDE}\n")
+        if MQTT_ENABLED:
+            print(f"[MQTT] Target broker: {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT} | Base topic: {MQTT_BASE_TOPIC}")
+        else:
+            print("[MQTT] Disabled")
         
         # Generate data continuously
         interval = 5  # Send data every 5 seconds
@@ -374,6 +520,7 @@ def main():
             
     except KeyboardInterrupt:
         print("\n\n[STOP] Generator stopped by user")
+        generator.shutdown()
         print("\n" + "="*70)
         print("Next steps:")
         print("="*70)

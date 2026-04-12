@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+smart_theatre.db
+certs/*.key
+certs/*.csr
+certs/*.srl
+certs/*.crt
