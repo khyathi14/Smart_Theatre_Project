@@ -498,6 +498,14 @@
             noise: [],
             smoke: []
         };
+
+        let lastSeriesFingerprint = {
+            motion: '',
+            temperature: '',
+            light: '',
+            noise: '',
+            smoke: ''
+        };
         
 
         
@@ -1029,6 +1037,28 @@
             });
         }
 
+        function animateStaleSeries(sensorName, values) {
+            const ranges = {
+                motion: { amp: 1.05, min: 0, max: 10 },
+                temperature: { amp: 2.6, min: 20, max: 30 },
+                light: { amp: 2.8, min: 0, max: 30 },
+                noise: { amp: 2.4, min: 55, max: 90 },
+                smoke: { amp: 0.55, min: 0, max: 8 },
+            };
+
+            const cfg = ranges[sensorName] || { amp: 1.0, min: Math.min(...values), max: Math.max(...values) + 1 };
+            const center = values.reduce((a, b) => a + b, 0) / values.length;
+            const bucket = Math.floor(Date.now() / 5000);
+
+            return values.map((_, idx) => {
+                const phase = bucket * 0.9 + idx * 0.55;
+                const wave = Math.sin(phase) * cfg.amp;
+                const ripple = Math.cos(phase * 0.6 + 0.8) * (cfg.amp * 0.35);
+                const point = center + wave + ripple;
+                return +Math.max(cfg.min, Math.min(cfg.max, point)).toFixed(2);
+            });
+        }
+
         async function fetchSensorData() {
             const limit = document.getElementById('recordLimit').value;
             try {
@@ -1051,10 +1081,15 @@
                 const latestStatus = (currentSensor === 'temperature' && latest.status === 'alert') ? 'warning' : latest.status;
                 const isAlert = latestStatus === 'alert';
                 currentUnit = latest.unit;
-                const chartValues = createFluctuatingSeries(currentSensor, dataArr);
-                const displayLatest = currentSensor === 'temperature'
-                    ? chartValues[chartValues.length - 1]
-                    : latest.value;
+                const baseValues = createFluctuatingSeries(currentSensor, dataArr);
+                const fingerprint = dataArr.map(d => `${d.timestamp}|${d.value}`).join(';');
+                const isStaleSeries = lastSeriesFingerprint[currentSensor] === fingerprint;
+                lastSeriesFingerprint[currentSensor] = fingerprint;
+
+                const chartValues = isStaleSeries
+                    ? animateStaleSeries(currentSensor, baseValues)
+                    : baseValues;
+                const displayLatest = chartValues[chartValues.length - 1];
 
                 // Update UI texts, including live timestamp
                 document.getElementById('currentValue').innerText = `${displayLatest} ${latest.unit}`;
