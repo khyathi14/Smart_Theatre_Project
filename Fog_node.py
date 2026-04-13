@@ -63,7 +63,7 @@ LIVE_LONGITUDE = float(os.getenv('LIVE_LONGITUDE', '-0.1276'))
 LIVE_CACHE_SECONDS = int(os.getenv('LIVE_mCACHE_SECONDS', '60'))
 MQTT_ENABLED = os.getenv('MQTT_ENABLED', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
 MQTT_BROKER_HOST = os.getenv('MQTT_BROKER_HOST', 'localhost')
-MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', '8883'))
+MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', '1883'))
 MQTT_USERNAME = os.getenv('MQTT_USERNAME', '').strip()
 MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '').strip()
 MQTT_BASE_TOPIC = os.getenv('MQTT_BASE_TOPIC', 'theatre/sensors').strip('/')
@@ -71,7 +71,7 @@ MQTT_ALERTS_TOPIC = os.getenv('MQTT_ALERTS_TOPIC', 'theatre/alerts').strip('/')
 MQTT_KEEPALIVE = int(os.getenv('MQTT_KEEPALIVE', '60'))
 _mqtt_use_tls_env = os.getenv('MQTT_USE_TLS')
 if _mqtt_use_tls_env is None:
-    # If user selected secure MQTT port but omitted MQTT_USE_TLS, infer TLS.
+    # Local broker defaults to plain MQTT; explicitly enable TLS when needed.
     MQTT_USE_TLS = MQTT_BROKER_PORT == 8883
 else:
     MQTT_USE_TLS = _mqtt_use_tls_env.strip().lower() in {'1', 'true', 'yes', 'on'}
