@@ -110,6 +110,7 @@ class SensorGenerator:
         self.data_source = DATA_SOURCE if DATA_SOURCE in {'mock', 'live', 'hybrid'} else 'hybrid'
         self.live_snapshot = None
         self.live_snapshot_ts = 0
+        self.last_temperature = None
         self.sqs = boto3.client('sqs', region_name=AWS_REGION)
         self.mqtt_client = None
         self.mqtt_connected = False
@@ -359,15 +360,27 @@ class SensorGenerator:
         
     def generate_temperature(self):
         """Generate realistic temperature by mode."""
+        baseline = None
+
         if self.data_source in {'live', 'hybrid'}:
             live = self.fetch_live_snapshot()
             if live and live.get('temperature') is not None:
                 live_temp = float(live['temperature'])
-                if self.data_source == 'live':
-                    return self.clamp_value('temperature', live_temp)
                 if 18.0 <= live_temp <= 26.0:
-                    jittered = live_temp + random.uniform(-0.7, 0.7)
-                    return self.clamp_value('temperature', jittered)
+                    baseline = live_temp
+
+        if baseline is None and self.mode == 'movie':
+            # Center around realistic indoor comfort when live values are missing/out-of-range.
+            baseline = random.uniform(20.5, 23.8)
+
+        if baseline is not None:
+            target = baseline + random.uniform(-0.9, 0.9)
+            if self.last_temperature is None:
+                self.last_temperature = target
+            else:
+                # Smooth between previous and target value to create natural trend movement.
+                self.last_temperature = (0.65 * self.last_temperature) + (0.35 * target)
+            return self.clamp_value('temperature', self.last_temperature)
 
         if self.mode == 'movie':
             # Normal: 20.5-22.5, Warning: 23.0-24.4
