@@ -95,7 +95,7 @@ MODE_THRESHOLDS = {
 }
 
 SENSOR_LIMITS = {
-    'temperature': (18.0, 25.0),
+    'temperature': (20.0, 30.0),
     'motion': (0.0, 100.0),
     'light': (0.0, 1200.0),
     'noise': (30.0, 110.0),
@@ -113,6 +113,7 @@ class SensorGenerator:
         self.live_snapshot_ts = 0
         self.last_temperature = None
         self.temperature_phase = random.uniform(0.0, 2.0 * math.pi)
+        self.temperature_spike_steps = 0
         self.sqs = boto3.client('sqs', region_name=AWS_REGION)
         self.mqtt_client = None
         self.mqtt_connected = False
@@ -361,24 +362,34 @@ class SensorGenerator:
             print(f"[DB ERROR] {e}")
         
     def generate_temperature(self):
-        """Generate a continuously fluctuating temperature in the 18-25 C band."""
-        center = 21.5
+        """Generate a 20-30 C fluctuating temperature with occasional higher peaks."""
+        center = 23.0
 
         if self.data_source in {'live', 'hybrid'}:
             live = self.fetch_live_snapshot()
             if live and live.get('temperature') is not None:
-                live_temp = max(18.0, min(25.0, float(live['temperature'])))
+                live_temp = max(20.0, min(30.0, float(live['temperature'])))
                 # Keep natural movement while allowing slow drift toward live conditions.
                 center = (0.75 * center) + (0.25 * live_temp)
 
-        self.temperature_phase += random.uniform(0.55, 0.95)
-        wave = math.sin(self.temperature_phase) * 2.75
-        target = center + wave + random.uniform(-0.25, 0.25)
+        self.temperature_phase += random.uniform(0.45, 0.75)
+        primary_wave = math.sin(self.temperature_phase) * 2.0
+        secondary_wave = math.sin(self.temperature_phase * 0.55 + 1.2) * 1.0
+
+        if self.temperature_spike_steps <= 0 and random.random() < 0.14:
+            self.temperature_spike_steps = random.randint(1, 3)
+
+        spike_component = 0.0
+        if self.temperature_spike_steps > 0:
+            spike_component = random.uniform(1.4, 2.8)
+            self.temperature_spike_steps -= 1
+
+        target = center + primary_wave + secondary_wave + spike_component + random.uniform(-0.25, 0.25)
 
         if self.last_temperature is None:
             self.last_temperature = target
         else:
-            self.last_temperature = (0.58 * self.last_temperature) + (0.42 * target)
+            self.last_temperature = (0.52 * self.last_temperature) + (0.48 * target)
 
         return self.clamp_value('temperature', self.last_temperature)
     
