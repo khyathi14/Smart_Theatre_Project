@@ -15,6 +15,7 @@ import boto3
 import json
 import time
 import random
+import math
 import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
@@ -94,7 +95,7 @@ MODE_THRESHOLDS = {
 }
 
 SENSOR_LIMITS = {
-    'temperature': (19.0, 24.5),
+    'temperature': (18.0, 25.0),
     'motion': (0.0, 100.0),
     'light': (0.0, 1200.0),
     'noise': (30.0, 110.0),
@@ -111,6 +112,7 @@ class SensorGenerator:
         self.live_snapshot = None
         self.live_snapshot_ts = 0
         self.last_temperature = None
+        self.temperature_phase = random.uniform(0.0, 2.0 * math.pi)
         self.sqs = boto3.client('sqs', region_name=AWS_REGION)
         self.mqtt_client = None
         self.mqtt_connected = False
@@ -359,35 +361,26 @@ class SensorGenerator:
             print(f"[DB ERROR] {e}")
         
     def generate_temperature(self):
-        """Generate realistic temperature by mode."""
-        baseline = None
+        """Generate a continuously fluctuating temperature in the 18-25 C band."""
+        center = 21.5
 
         if self.data_source in {'live', 'hybrid'}:
             live = self.fetch_live_snapshot()
             if live and live.get('temperature') is not None:
-                live_temp = float(live['temperature'])
-                if 18.0 <= live_temp <= 26.0:
-                    baseline = live_temp
+                live_temp = max(18.0, min(25.0, float(live['temperature'])))
+                # Keep natural movement while allowing slow drift toward live conditions.
+                center = (0.75 * center) + (0.25 * live_temp)
 
-        if baseline is None and self.mode == 'movie':
-            # Center around realistic indoor comfort when live values are missing/out-of-range.
-            baseline = random.uniform(20.5, 23.8)
+        self.temperature_phase += random.uniform(0.55, 0.95)
+        wave = math.sin(self.temperature_phase) * 2.75
+        target = center + wave + random.uniform(-0.25, 0.25)
 
-        if baseline is not None:
-            target = baseline + random.uniform(-0.9, 0.9)
-            if self.last_temperature is None:
-                self.last_temperature = target
-            else:
-                # Smooth between previous and target value to create natural trend movement.
-                self.last_temperature = (0.65 * self.last_temperature) + (0.35 * target)
-            return self.clamp_value('temperature', self.last_temperature)
-
-        if self.mode == 'movie':
-            # Normal: 20.5-22.5, Warning: 23.0-24.4
-            return self.movie_biased_value('temperature', (20.5, 22.5), (23.0, 24.4))
+        if self.last_temperature is None:
+            self.last_temperature = target
         else:
-            value = random.uniform(21.0, 24.0)
-        return self.clamp_value('temperature', value)
+            self.last_temperature = (0.58 * self.last_temperature) + (0.42 * target)
+
+        return self.clamp_value('temperature', self.last_temperature)
     
     def generate_motion(self):
         """Generate realistic motion percentage by mode."""

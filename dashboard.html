@@ -983,17 +983,18 @@
         }
 
         function createTemperatureDisplaySeries(dataArr) {
-            const values = dataArr.map(d => d.value);
+            const values = dataArr.map(d => Math.max(18, Math.min(25, d.value)));
             const allEqual = values.every(v => Math.abs(v - values[0]) < 0.001);
             if (!allEqual) {
                 return values;
             }
 
-            const center = Math.max(19.4, Math.min(23.8, values[0] || 21.5));
+            const center = Math.max(18.8, Math.min(24.2, values[0] || 21.5));
             return values.map((_, idx) => {
-                const wave = Math.sin((idx + 1) * 1.1) * 0.45;
-                const noise = (Math.random() - 0.5) * 0.18;
-                return +(center + wave + noise).toFixed(2);
+                const wave = Math.sin((idx + 1) * 1.1) * 2.25;
+                const noise = (Math.random() - 0.5) * 0.24;
+                const point = center + wave + noise;
+                return +Math.max(18, Math.min(25, point)).toFixed(2);
             });
         }
 
@@ -1019,9 +1020,15 @@
                 const latestStatus = (currentSensor === 'temperature' && latest.status === 'alert') ? 'warning' : latest.status;
                 const isAlert = latestStatus === 'alert';
                 currentUnit = latest.unit;
+                const chartValues = currentSensor === 'temperature'
+                    ? createTemperatureDisplaySeries(dataArr)
+                    : dataArr.map(d => d.value);
+                const displayLatest = currentSensor === 'temperature'
+                    ? chartValues[chartValues.length - 1]
+                    : latest.value;
 
                 // Update UI texts, including live timestamp
-                document.getElementById('currentValue').innerText = `${latest.value} ${latest.unit}`;
+                document.getElementById('currentValue').innerText = `${displayLatest} ${latest.unit}`;
                 document.getElementById('currentValue').style.color = isAlert ? "#ff3d00" : "#00e676";
                 document.getElementById('currentTimestamp').innerText = '';
 
@@ -1039,9 +1046,7 @@
 
                 // Use a live 5-second timeline so the graph refreshes with current timestamps.
                 chart.data.labels = buildLiveTimelineLabels(dataArr.length, 5);
-                chart.data.datasets[0].data = currentSensor === 'temperature'
-                    ? createTemperatureDisplaySeries(dataArr)
-                    : dataArr.map(d => d.value);
+                chart.data.datasets[0].data = chartValues;
                 chart.data.datasets[0].borderColor = color;
                 chart.data.datasets[0].backgroundColor = `rgba(${bgR}, ${bgG}, ${bgB}, 0.15)`;
                 chart.data.datasets[0].pointBackgroundColor = color;
@@ -1050,7 +1055,7 @@
                 chart.update('none');
 
                 // Calculate Stats
-                const values = dataArr.map(d => d.value);
+                const values = chartValues;
                 const min = Math.min(...values);
                 const max = Math.max(...values);
                 let avg = (values.reduce((a, b) => a + b, 0) / values.length);
