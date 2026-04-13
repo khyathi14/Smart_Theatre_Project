@@ -46,6 +46,10 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            sudo mkdir -p /etc/smart-theatre
+            sudo install -m 600 /dev/null /etc/smart-theatre/.env
+            sudo install -m 600 /dev/null /etc/default/smart-theatre-generator
+
             # Recreate .env on EC2 from a protected GitHub secret.
             # Store the whole env file content in EC2_ENV_FILE.
             if [ -n "${{ secrets.EC2_ENV_FILE }}" ]; then
@@ -54,7 +58,6 @@ jobs:
             fi
 
             if [ -f .env ]; then
-              sudo mkdir -p /etc/smart-theatre
               sudo cp .env /etc/smart-theatre/.env
               sudo cp .env /etc/default/smart-theatre-generator
               sudo chmod 600 /etc/smart-theatre/.env /etc/default/smart-theatre-generator
