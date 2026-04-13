@@ -73,6 +73,7 @@ jobs:
             sudo tee /etc/systemd/system/smart-theatre-generator.service.d/override.conf > /dev/null <<EOF
             [Service]
             WorkingDirectory=${{ secrets.EC2_APP_DIR }}
+            EnvironmentFile=
             EnvironmentFile=-/etc/default/smart-theatre-generator
             EnvironmentFile=-/etc/smart-theatre/.env
             ExecStart=
@@ -81,6 +82,8 @@ jobs:
             RestartSec=5
             EOF
             sudo systemctl daemon-reload
+            sudo systemctl cat smart-theatre-generator --no-pager
+            sudo ls -l /etc/default/smart-theatre-generator /etc/smart-theatre/.env
 
             restart_and_verify() {
               svc="$1"
