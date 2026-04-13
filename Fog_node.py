@@ -362,7 +362,12 @@ class SensorGenerator:
         if self.data_source in {'live', 'hybrid'}:
             live = self.fetch_live_snapshot()
             if live and live.get('temperature') is not None:
-                return self.clamp_value('temperature', live['temperature'])
+                live_temp = float(live['temperature'])
+                if self.data_source == 'live':
+                    return self.clamp_value('temperature', live_temp)
+                if 18.0 <= live_temp <= 26.0:
+                    jittered = live_temp + random.uniform(-0.7, 0.7)
+                    return self.clamp_value('temperature', jittered)
 
         if self.mode == 'movie':
             # Normal: 20.5-22.5, Warning: 23.0-24.4
