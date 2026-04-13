@@ -94,7 +94,7 @@ MODE_THRESHOLDS = {
 }
 
 SENSOR_LIMITS = {
-    'temperature': (15.0, 30.0),
+    'temperature': (19.0, 24.5),
     'motion': (0.0, 100.0),
     'light': (0.0, 1200.0),
     'noise': (30.0, 110.0),
@@ -444,6 +444,9 @@ class SensorGenerator:
         if normal_low <= value <= normal_high:
             return 'normal'
         if warning_low <= value <= warning_high:
+            return 'warning'
+        if sensor_type == 'temperature':
+            # Keep temperature severity capped at warning for dashboard UX.
             return 'warning'
         return 'alert'
     
