@@ -46,6 +46,13 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            # Recreate .env on EC2 from a protected GitHub secret.
+            # Store the whole env file content in EC2_ENV_FILE.
+            if [ -n "${{ secrets.EC2_ENV_FILE }}" ]; then
+              printf "%s\n" "${{ secrets.EC2_ENV_FILE }}" > .env
+              chmod 600 .env
+            fi
+
             if [ -f .env ]; then
               sudo mkdir -p /etc/smart-theatre
               sudo cp .env /etc/smart-theatre/.env
@@ -58,9 +65,18 @@ jobs:
             pip install --upgrade pip
             pip install -r requirements.txt
 
-            sudo systemctl restart smart-theatre
-            sudo systemctl restart smart-theatre-generator
-            sudo systemctl restart nginx
-            sudo systemctl status smart-theatre --no-pager
-            sudo systemctl status smart-theatre-generator --no-pager
-            sudo systemctl status nginx --no-pager
+            restart_and_verify() {
+              svc="$1"
+              sudo systemctl restart "$svc"
+              if ! sudo systemctl is-active --quiet "$svc"; then
+                echo "[DEPLOY ERROR] $svc failed to start"
+                sudo systemctl status "$svc" --no-pager || true
+                sudo journalctl -u "$svc" -n 120 --no-pager || true
+                exit 1
+              fi
+              sudo systemctl status "$svc" --no-pager
+            }
+
+            restart_and_verify smart-theatre
+            restart_and_verify smart-theatre-generator
+            restart_and_verify nginx
