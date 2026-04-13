@@ -67,7 +67,12 @@ jobs:
 
             restart_and_verify() {
               svc="$1"
-              sudo systemctl restart "$svc"
+              if ! sudo systemctl restart "$svc"; then
+                echo "[DEPLOY ERROR] restart command failed for $svc"
+                sudo systemctl status "$svc" --no-pager || true
+                sudo journalctl -u "$svc" -n 120 --no-pager || true
+                exit 1
+              fi
               if ! sudo systemctl is-active --quiet "$svc"; then
                 echo "[DEPLOY ERROR] $svc failed to start"
                 sudo systemctl status "$svc" --no-pager || true
