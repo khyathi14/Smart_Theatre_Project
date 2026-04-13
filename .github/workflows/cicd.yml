@@ -68,6 +68,20 @@ jobs:
             pip install --upgrade pip
             pip install -r requirements.txt
 
+            # Force generator service to use stable paths on each deploy.
+            sudo mkdir -p /etc/systemd/system/smart-theatre-generator.service.d
+            sudo tee /etc/systemd/system/smart-theatre-generator.service.d/override.conf > /dev/null <<EOF
+            [Service]
+            WorkingDirectory=${{ secrets.EC2_APP_DIR }}
+            EnvironmentFile=-/etc/default/smart-theatre-generator
+            EnvironmentFile=-/etc/smart-theatre/.env
+            ExecStart=
+            ExecStart=${{ secrets.EC2_APP_DIR }}/venv/bin/python ${{ secrets.EC2_APP_DIR }}/generate_sensors.py
+            Restart=always
+            RestartSec=5
+            EOF
+            sudo systemctl daemon-reload
+
             restart_and_verify() {
               svc="$1"
               if ! sudo systemctl restart "$svc"; then
